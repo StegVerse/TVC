@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {
+      "use_case": "connectivity-check",
+      "module": "hybrid-collab-bridge",
+      "importance": "normal",
+      "provider": {
+        "model": "gpt-4.1-mini",
+        "engine": "github-models",
+        "max_tokens": 800,
+        "temperature": 0.2
+      }
+    }
+  ]
+}
