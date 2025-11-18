@@ -1,5 +1,11 @@
-# stegtvc_client.py
+"""
+StegTVC Client – lightweight import layer for GitHub Actions.
 
-from app.resolver import stegtvc_resolve
+Workflow example:
+    from stegtvc_client import resolve
 
-__all__ = ["stegtvc_resolve"]
+"""
+
+from app.resolver import stegtvc_resolve as resolve
+
+__all__ = ["resolve"]
