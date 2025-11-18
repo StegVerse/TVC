@@ -1,0 +1,10 @@
+{
+  "providers": [
+    {
+      "name": "GitHub-Models",
+      "model": "gpt-4.1-mini",
+      "endpoint": "https://models.github.ai/inference/chat/completions",
+      "priority": 1
+    }
+  ]
+}
