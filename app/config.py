@@ -1,65 +1,69 @@
-"""
-app.config
-
-Loads the StegTV policy bundle exported from StegVerse/TV and exposes
-simple accessors for roles / issuers. StegTVC is the core runtime.
-"""
-
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
-from typing import Any, Dict
-
-BASE_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_BUNDLE_PATH = BASE_DIR / "policy_bundle.json"
+from dataclasses import dataclass
+from functools import lru_cache
 
 
-class PolicyBundle:
-    def __init__(self, raw: Dict[str, Any], path: Path) -> None:
-        self.raw = raw
-        self.path = path
+@dataclass
+class ProviderConfig:
+    """Canonical description of a single AI provider/model combo."""
 
-    @property
-    def version(self) -> int | None:
-        return self.raw.get("version")
-
-    @property
-    def integrity(self) -> Dict[str, Any]:
-        return self.raw.get("integrity", {})
-
-    @property
-    def roles_yaml(self) -> str:
-        return self.raw.get("content", {}).get("roles_yaml", "")
-
-    @property
-    def issuers_yaml(self) -> str:
-        return self.raw.get("content", {}).get("issuers_yaml", "")
-
-    @property
-    def rotation_markdown(self) -> str:
-        return self.raw.get("content", {}).get("rotation_markdown", "")
+    name: str               # e.g. "github_models" or "openai"
+    model: str              # e.g. "openai/gpt-4.1-mini"
+    endpoint: str | None    # optional explicit base URL
+    notes: str | None = None
 
 
-def load_policy_bundle(path: str | Path | None = None) -> PolicyBundle:
-    bundle_path = Path(
-        os.getenv("STEGTV_POLICY_BUNDLE_PATH", str(path or DEFAULT_BUNDLE_PATH))
+@dataclass
+class StegTVCSettings:
+    """Top-level settings for StegTVC Core."""
+
+    service_name: str = "StegTVC"
+    version: str = os.getenv("STEGTVC_VERSION", "0.1.0")
+
+    # Where StegTVC itself is reachable (for self-reports)
+    public_url: str | None = os.getenv("STEGTVC_PUBLIC_URL")
+
+    # Default provider/model for generic text tasks
+    default_provider_name: str = os.getenv("STEGTVC_DEFAULT_PROVIDER", "github_models")
+    default_model: str = os.getenv("STEGTVC_DEFAULT_MODEL", "openai/gpt-4.1-mini")
+
+    # Optional explicit endpoints (most callers can ignore these)
+    github_models_endpoint: str = os.getenv(
+        "STEGTVC_GITHUB_MODELS_ENDPOINT",
+        "https://models.github.ai/inference/chat/completions",
+    )
+    openai_endpoint: str = os.getenv(
+        "STEGTVC_OPENAI_ENDPOINT",
+        "https://api.openai.com/v1/chat/completions",
     )
 
-    if not bundle_path.exists():
-        raise FileNotFoundError(
-            f"StegTV policy bundle not found at {bundle_path}. "
-            "Copy exports/stegtv_policy_bundle.json from the TV repo and "
-            "place it as policy_bundle.json (or set STEGTV_POLICY_BUNDLE_PATH)."
-        )
 
-    raw = json.loads(bundle_path.read_text(encoding="utf-8"))
-    return PolicyBundle(raw=raw, path=bundle_path)
+@lru_cache(maxsize=1)
+def get_settings() -> StegTVCSettings:
+    """Cached settings instance."""
+    return StegTVCSettings()
 
 
-def get_env(name: str, default: str | None = None, required: bool = False) -> str | None:
-    value = os.getenv(name, default)
-    if required and not value:
-        raise RuntimeError(f"Required environment variable {name} is not set")
-    return value
+def get_default_provider() -> ProviderConfig:
+    """Return a ProviderConfig instance for the default provider/model."""
+    settings = get_settings()
+
+    if settings.default_provider_name.lower() in {"github_models", "github"}:
+        endpoint = settings.github_models_endpoint
+        name = "github_models"
+    elif settings.default_provider_name.lower() in {"openai"}:
+        endpoint = settings.openai_endpoint
+        name = "openai"
+    else:
+        # Fallback – treat as opaque provider name
+        endpoint = None
+        name = settings.default_provider_name
+
+    return ProviderConfig(
+        name=name,
+        model=settings.default_model,
+        endpoint=endpoint,
+        notes="Default provider selected by StegTVC. Safe for generic text tasks.",
+    )
