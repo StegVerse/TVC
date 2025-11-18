@@ -1,32 +1,17 @@
 import json
-import urllib.request
+from .config import load_stegtv_config
 
-def stegtvc_resolve(use_case="default", module="unknown", importance="normal"):
+def stegtvc_resolve(use_case="general", module="unknown", importance="normal"):
     """
-    Fetch config.py from GitHub and return model selection.
+    Simple model resolver used by Hybrid-Collab-Bridge.
     """
+    cfg = load_stegtv_config()
 
-    url = "https://raw.githubusercontent.com/StegVerse-Labs/StegTVC/main/app/config.py"
-
-    with urllib.request.urlopen(url, timeout=10) as resp:
-        raw = resp.read().decode("utf-8")
-
-    # Execute config file safely
-    config_namespace = {}
-    exec(raw, config_namespace)
-
-    config = config_namespace.get("CONFIG", {})
-
-    # Use-case specific?
-    if use_case in config.get("use_cases", {}):
-        model_cfg = config["use_cases"][use_case]
-    else:
-        model_cfg = config["default"]
+    # For now: always pick the first provider with highest priority
+    provider = sorted(cfg["providers"], key=lambda p: p["priority"])[0]
 
     return {
-        "provider": model_cfg,
-        "meta": {
-            "module": module,
-            "importance": importance,
-        },
+        "use_case": use_case,
+        "module": module,
+        "provider": provider
     }
